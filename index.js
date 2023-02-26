@@ -1,11 +1,20 @@
+require("dotenv").config();
 const express = require("express");
 var morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person");
+const { default: mongoose } = require("mongoose");
 
 const app = express();
 
-app.use(morgan("tiny"));
-
+// Middleware:
+app.use(
+  morgan("tiny", {
+    skip: function (req, res) {
+      return req.method == "POST";
+    },
+  })
+);
 app.use(
   morgan(function (tokens, req, res) {
     if (req.method == "POST") {
@@ -29,76 +38,133 @@ app.use(cors());
 
 app.use(express.static("build"));
 
-let persons = [
-  {
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-    id: 4,
-  },
-  {
-    name: "nimi",
-    number: "11111",
-    id: 5,
-  },
-  {
-    name: "nimi2",
-    number: "21111",
-    id: 6,
-  },
-];
-
+// Routes
 app.get("/api/persons", (req, res) => {
-  res.json(persons);
+  Person.find({})
+    .then((result) => {
+      res.json(result);
+    })
+    .catch((error) => next(error));
 });
 
 app.get("/info", (req, res) => {
   const date = new Date().toUTCString();
-  res.json(`Phonebook has info for ${persons.length} people
-  ${date}`);
+  Person.find({})
+    .then((result) => {
+      res.json(`Phonebook has info for ${result.length} people ${date}`);
+    })
+    .catch((error) => next(error));
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const person = persons.find((person) => person.id === id);
-  if (!person) {
-    res.status(404).end();
-    return;
-  }
-  res.json(person);
+app.get("/api/persons/:id", (req, res, next) => {
+  const id = req.params.id;
+  Person.findById(id)
+    .then((p) => {
+      if (p) {
+        res.json(p);
+      } else {
+        res.status(404).send(`No person found for id: ${id}`);
+      }
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((person) => person.id !== id);
-  res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+  Person.findByIdAndDelete(req.params.id)
+    .then((person) => {
+      res.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
-app.post("/api/persons", (req, res) => {
-  const person = req.body;
+app.post("/api/persons", (req, res, next) => {
+  const body = req.body;
 
-  if (!person.number) {
+  if (!body.number) {
     return res.status(400).json({
       error: "number missing",
     });
   }
-  if (!person.name) {
+  if (!body.name) {
     return res.status(400).json({
       error: "name missing",
     });
   }
 
-  if (persons.find((p) => p.name === person.name)) {
-    return res.status(409).json({
-      error: "name already in phonebook",
+  const person = new Person({
+    name: body.name,
+    number: body.number,
+  });
+
+  Person.findOne({ name: body.name })
+    .then((p) => {
+      if (p) {
+        res.status(409).json({
+          error: "name already in phonebook",
+        });
+      } else {
+        person
+          .save()
+          .then((updatedPerson) => {
+            res.json(updatedPerson);
+          })
+          .catch((error) => next(error));
+      }
+    })
+    .catch((error) => next(error));
+});
+
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+  const id = req.params.id;
+
+  if (!body.number) {
+    return res.status(400).json({
+      error: "number missing",
+    });
+  }
+  if (!body.name) {
+    return res.status(400).json({
+      error: "name missing",
     });
   }
 
-  person.id = Math.floor(Math.random() * 100000);
+  const person = {
+    name: body.name,
+    number: body.number,
+  };
 
-  persons = persons.concat(person);
-
-  res.json(person);
+  Person.findByIdAndUpdate(id, person, { new: true })
+    .then((updatedPerson) => {
+      if (updatedPerson) {
+        res.json(updatedPerson);
+      } else {
+        res.status(404).send(`No person found for id: ${id}`);
+      }
+    })
+    .catch((error) => next(error));
 });
+
+// Use errorHandlers
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+const errorHandler = (error, request, response, next) => {
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "Bad request: invalid request" });
+  } else if (error.name === "SyntaxError") {
+    return response.status(400).send({ error: "Bad request: invalid request" });
+  } else if (error instanceof mongoose.Error) {
+    return response.status(500).send("Internal server error");
+  }
+
+  next(error);
+};
+
+app.use(unknownEndpoint);
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
