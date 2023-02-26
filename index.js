@@ -80,17 +80,6 @@ app.delete("/api/persons/:id", (req, res, next) => {
 app.post("/api/persons", (req, res, next) => {
   const body = req.body;
 
-  if (!body.number) {
-    return res.status(400).json({
-      error: "number missing",
-    });
-  }
-  if (!body.name) {
-    return res.status(400).json({
-      error: "name missing",
-    });
-  }
-
   const person = new Person({
     name: body.name,
     number: body.number,
@@ -115,26 +104,14 @@ app.post("/api/persons", (req, res, next) => {
 });
 
 app.put("/api/persons/:id", (req, res, next) => {
-  const body = req.body;
+  const { name, number } = req.body;
   const id = req.params.id;
 
-  if (!body.number) {
-    return res.status(400).json({
-      error: "number missing",
-    });
-  }
-  if (!body.name) {
-    return res.status(400).json({
-      error: "name missing",
-    });
-  }
-
-  const person = {
-    name: body.name,
-    number: body.number,
-  };
-
-  Person.findByIdAndUpdate(id, person, { new: true })
+  Person.findByIdAndUpdate(
+    id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
     .then((updatedPerson) => {
       if (updatedPerson) {
         res.json(updatedPerson);
@@ -155,6 +132,8 @@ const errorHandler = (error, request, response, next) => {
     return response.status(400).send({ error: "Bad request: invalid request" });
   } else if (error.name === "SyntaxError") {
     return response.status(400).send({ error: "Bad request: invalid request" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).json({ error: error.message });
   } else if (error instanceof mongoose.Error) {
     return response.status(500).send("Internal server error");
   }
