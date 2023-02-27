@@ -1,9 +1,9 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const argsLenght = process.argv.length;
 
 if (argsLenght < 3) {
-  console.log("give password as argument");
+  console.log('give password as argument');
   process.exit(1);
 }
 
@@ -11,7 +11,7 @@ const password = process.argv[2];
 
 const url = `mongodb+srv://hakaneneero:${password}@cluster0.0lazef0.mongodb.net/phonebook?retryWrites=true&w=majority`;
 
-mongoose.set("strictQuery", false);
+mongoose.set('strictQuery', false);
 mongoose.connect(url);
 
 const personSchema = new mongoose.Schema({
@@ -19,10 +19,10 @@ const personSchema = new mongoose.Schema({
   number: String,
 });
 
-const Person = mongoose.model("Person", personSchema);
+const Person = mongoose.model('Person', personSchema);
 
 if (argsLenght == 3) {
-  console.log("phonebook:");
+  console.log('phonebook:');
   Person.find({}).then((result) => {
     result.forEach((person) => {
       console.log(`${person.name} ${person.number}`);
@@ -35,8 +35,8 @@ if (argsLenght == 3) {
     number: process.argv[4],
   });
 
-  person.save().then((result) => {
-    console.log("contact saved!");
+  person.save().then(() => {
+    console.log('contact saved!');
     mongoose.connection.close();
   });
 }
