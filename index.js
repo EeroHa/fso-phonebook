@@ -11,13 +11,13 @@ const app = express();
 app.use(
   morgan('tiny', {
     skip: function (req) {
-      return req.method == 'POST';
+      return req.method === 'POST';
     },
   })
 );
 app.use(
   morgan(function (tokens, req, res) {
-    if (req.method == 'POST') {
+    if (req.method === 'POST') {
       return [
         tokens.method(req, res),
         tokens.url(req, res),
